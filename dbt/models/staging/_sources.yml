@@ -1,0 +1,45 @@
+version: 2
+
+sources:
+  - name: carburants
+    description: >
+      Flux officiel quotidien prix-carburants.gouv.fr, chargé tel quel (valeurs en texte)
+      par le DAG Airflow prix_carburants_quotidien. Une ligne par date de fichier.
+    schema: raw
+    tables:
+      - name: journal_ingestion
+        description: Une ligne par jour chargé, avec les volumes et l'empreinte du fichier.
+        loaded_at_field: charge_le
+        config:
+          freshness:
+            # Le DAG tourne chaque matin : au-delà de 30 h sans chargement, une exécution a sauté.
+            warn_after: { count: 30, period: hour }
+            error_after: { count: 54, period: hour }
+        columns:
+          - name: date_fichier
+            data_tests: [unique, not_null]
+
+      - name: stations
+        description: Points de vente, tels qu'ils figurent dans chaque fichier quotidien.
+        columns:
+          - name: id_station
+            data_tests: [not_null]
+          - name: date_fichier
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('carburants', 'journal_ingestion')
+                    field: date_fichier
+
+      - name: prix
+        description: >
+          Dernier prix connu de chaque carburant de chaque station, au moment du fichier.
+          Le même prix se répète d'un fichier à l'autre tant qu'il ne change pas.
+        columns:
+          - name: valeur
+            description: Prix en euros par litre, en texte (« 2.086 »).
+            data_tests: [not_null]
+
+      - name: ruptures
+        description: Ruptures de stock temporaires ou définitives, par station et carburant.
