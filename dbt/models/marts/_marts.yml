@@ -35,6 +35,17 @@ models:
           - accepted_values:
               arguments:
                 values: [route, autoroute]
+      - name: enseigne
+        description: >
+          Enseigne normalisée, d'après OpenStreetMap (© contributeurs OSM, ODbL).
+          « Inconnue » si la station n'a pas de marque dans OSM, « Autre » si sa marque
+          n'est pas dans le référentiel.
+        data_tests: [not_null]
+      - name: type_enseigne
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [grande_distribution, petrolier, independant, autre, inconnu]
 
   - name: fct_prix_quotidiens
     description: >

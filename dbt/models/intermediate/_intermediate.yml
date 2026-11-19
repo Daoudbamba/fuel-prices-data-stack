@@ -34,3 +34,11 @@ models:
               arguments:
                 # Un prix ne peut pas être mis à jour après la publication du fichier.
                 min_value: 0
+
+  - name: int_stations__enseignes
+    description: Enseigne normalisée et type d'enseigne des stations présentes dans OSM.
+    columns:
+      - name: id_station
+        data_tests: [unique, not_null]
+      - name: enseigne
+        data_tests: [not_null]

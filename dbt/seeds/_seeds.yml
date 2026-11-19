@@ -28,3 +28,18 @@ seeds:
     columns:
       - name: id_carburant
         data_tests: [unique, not_null]
+
+  - name: correspondance_enseignes
+    description: >
+      Regroupement des libellés de marque OpenStreetMap en enseignes. TotalEnergies
+      Access, réseau à prix bas, reste distinct de TotalEnergies. Construit à partir
+      de l'extraction du 18/11/2026 : 51 libellés couvrant 98,2 % des stations dotées
+      d'une marque.
+    columns:
+      - name: marque_osm
+        data_tests: [unique, not_null]
+      - name: type_enseigne
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [grande_distribution, petrolier, independant]

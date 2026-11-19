@@ -16,6 +16,10 @@ select
     a_automate_24_24,
     nb_services,
     fermeture_type,
+    enseigne,
+    type_enseigne,
+    marque_osm,
+    est_marque_ambigue,
     premiere_date_vue,
     derniere_date_vue,
     est_dans_dernier_fichier

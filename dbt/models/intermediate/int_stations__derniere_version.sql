@@ -35,9 +35,15 @@ select
     v.fermeture_type,
     v.premiere_date_vue,
     v.derniere_date_vue,
-    v.derniere_date_vue = f.date_fichier as est_dans_dernier_fichier
+    v.derniere_date_vue = f.date_fichier as est_dans_dernier_fichier,
+    e.marque_osm,
+    -- Station absente d'OpenStreetMap : enseigne inconnue.
+    coalesce(e.enseigne, 'Inconnue')                     as enseigne,
+    coalesce(e.type_enseigne, 'inconnu')                 as type_enseigne,
+    coalesce(e.est_marque_ambigue, false)                as est_marque_ambigue
 from versions as v
 cross join dernier_fichier as f
 left join {{ ref('departements') }} as d on d.code_departement = v.code_departement
 left join {{ ref('regions') }} as r on r.code_region = d.code_region
+left join {{ ref('int_stations__enseignes') }} as e on e.id_station = v.id_station
 where v.rang = 1
