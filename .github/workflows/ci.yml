@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  # Connexion à la base PostgreSQL de test (service du job).
+  ENTREPOT_HOST: localhost
+  ENTREPOT_PORT: "5432"
+  ENTREPOT_DB: entrepot
+  ENTREPOT_USER: entrepot
+  ENTREPOT_PASSWORD: ci-uniquement
+
+jobs:
+  python:
+    name: Lint et tests Python
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: entrepot
+          POSTGRES_USER: entrepot
+          POSTGRES_PASSWORD: ci-uniquement
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U entrepot -d entrepot"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements/*.txt
+      - name: Dépendances
+        run: pip install -r requirements/dev.txt
+      - name: Lint (ruff)
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Tests (unitaires et intégration PostgreSQL)
+        # Les tests de DAG sont ignorés ici (pas d'Airflow) : ils tournent dans le job « airflow ».
+        run: pytest -ra
+
+  dbt:
+    name: dbt build sur une base de test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: entrepot
+          POSTGRES_USER: entrepot
+          POSTGRES_PASSWORD: ci-uniquement
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U entrepot -d entrepot"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PYTHONPATH: src
+      DBT_PROFILES_DIR: dbt
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: requirements/*.txt
+      - name: Dépendances
+        run: pip install -r requirements/dev.txt
+      - name: Chargement de deux vrais jours réduits à 250 stations (code d'ingestion de production)
+        run: python scripts/charger_donnees_ci.py
+      - name: dbt deps et parse
+        working-directory: dbt
+        run: |
+          dbt deps
+          dbt parse
+      - name: dbt build
+        working-directory: dbt
+        # L'extrait compte 250 stations par jour : le seuil de volume est abaissé.
+        run: |
+          dbt build --vars '{nb_stations_min_par_jour: 200}'
+      - name: Documentation dbt
+        working-directory: dbt
+        run: dbt docs generate --static
+      - name: Publication de la documentation et des résultats
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dbt-documentation
+          path: |
+            dbt/target/static_index.html
+            dbt/target/run_results.json
+          if-no-files-found: ignore
+
+  airflow:
+    name: DAG Airflow et Docker Compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Image Airflow du projet
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/airflow/Dockerfile
+          tags: fuel-airflow:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Intégrité des DAG (import sans base Airflow)
+        run: |
+          docker run --rm --entrypoint bash \
+            -e PYTHONPATH=/opt/airflow/src \
+            -v "$PWD:/projet:ro" -w /projet fuel-airflow:ci \
+            -c "pip install -q pytest==9.2.0 && python -m pytest -p no:cacheprovider -ra tests/test_dags.py"
+      - name: Configuration Docker Compose valide
+        run: |
+          bash scripts/generer_env.sh
+          docker compose config --quiet
