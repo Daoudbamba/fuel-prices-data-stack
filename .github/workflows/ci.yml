@@ -72,7 +72,9 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       PYTHONPATH: src
-      DBT_PROFILES_DIR: dbt
+      # Chemin absolu : les étapes dbt s'exécutent depuis le dossier dbt/, où un chemin
+      # relatif « dbt » désignerait dbt/dbt.
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
