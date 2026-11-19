@@ -1,0 +1,30 @@
+version: 2
+
+seeds:
+  - name: departements
+    description: Départements français (geo.api.gouv.fr), avec le code de leur région.
+    columns:
+      - name: code_departement
+        data_tests: [unique, not_null]
+      - name: code_region
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('regions')
+                field: code_region
+
+  - name: regions
+    description: Régions françaises (geo.api.gouv.fr).
+    columns:
+      - name: code_region
+        data_tests: [unique, not_null]
+
+  - name: carburants
+    description: >
+      Les six carburants du flux, avec des bornes de prix plausibles (en €/L) choisies
+      pour détecter les erreurs d'unité, pas les prix élevés : tous les prix récents
+      d'octobre-novembre 2026 sont dans ces bornes.
+    columns:
+      - name: id_carburant
+        data_tests: [unique, not_null]

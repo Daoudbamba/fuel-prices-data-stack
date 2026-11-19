@@ -1,0 +1,53 @@
+name: prix_carburants
+version: "1.0.0"
+config-version: 2
+profile: entrepot
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: target
+clean-targets: [target, dbt_packages]
+
+vars:
+  # Un prix est « récent » s'il a été mis à jour il y a au plus ce nombre de jours.
+  # Les agrégats ne retiennent que les prix récents : le flux garde des prix figés
+  # depuis des années (jusqu'en 2009 dans le fichier du 17/11/2026).
+  age_max_prix_recent_jours: 7
+  # Écart relatif à la médiane départementale du jour au-delà duquel un prix est signalé.
+  ecart_max_mediane_departement: 0.40
+
+models:
+  prix_carburants:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  prix_carburants:
+    +schema: referentiel
+    departements:
+      +column_types:
+        code_departement: text
+        code_region: text
+    regions:
+      +column_types:
+        code_region: text
+    carburants:
+      +column_types:
+        id_carburant: integer
+        prix_min_plausible: numeric(5, 3)
+        prix_max_plausible: numeric(5, 3)
+
+data_tests:
+  prix_carburants:
+    # Les lignes en échec sont gardées dans le schéma audit pour l'analyse.
+    +store_failures: true
+    +schema: audit

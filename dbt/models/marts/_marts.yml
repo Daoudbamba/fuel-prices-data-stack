@@ -1,0 +1,103 @@
+version: 2
+
+models:
+  - name: dim_carburants
+    description: Référentiel des six carburants du flux, avec leurs bornes de prix plausibles.
+    columns:
+      - name: id_carburant
+        data_tests: [unique, not_null]
+      - name: code_carburant
+        data_tests: [unique, not_null]
+
+  - name: dim_stations
+    description: >
+      Une ligne par station rattachée à un département, avec ses derniers attributs
+      connus et sa région.
+    columns:
+      - name: id_station
+        data_tests: [unique, not_null]
+      - name: code_departement
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('departements')
+                field: code_departement
+      - name: code_region
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('regions')
+                field: code_region
+      - name: type_route
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [route, autoroute]
+
+  - name: fct_prix_quotidiens
+    description: >
+      Un prix par station, carburant et jour de fichier (table incrémentale).
+      Les prix anciens et atypiques sont gardés et signalés, pas supprimés.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date_fichier, id_station, id_carburant]
+    columns:
+      - name: id_station
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_stations')
+                field: id_station
+      - name: id_carburant
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_carburants')
+                field: id_carburant
+      - name: prix_litre
+        data_tests: [not_null]
+      - name: est_recent
+        data_tests: [not_null]
+      - name: est_atypique
+        data_tests: [not_null]
+
+  - name: mart_prix_regions_quotidiens
+    description: >
+      Prix moyen, médian, minimum et maximum par région (et pour la France entière),
+      carburant et jour. Base des graphiques d'évolution et de comparaison régionale.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date_fichier, code_region, code_carburant]
+    columns:
+      - name: code_carburant
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Gazole, SP95, E85, GPLc, E10, SP98]
+      - name: nb_stations
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1
+
+  - name: mart_classement_stations
+    description: >
+      Stations classées par prix sur le dernier jour chargé, au niveau national et
+      départemental, par carburant. Base du tableau « stations les moins chères ».
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [id_station, code_carburant]
+    columns:
+      - name: rang_departement
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 1

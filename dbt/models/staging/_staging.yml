@@ -1,0 +1,77 @@
+version: 2
+
+models:
+  - name: stg_carburants__stations
+    description: >
+      Stations par fichier quotidien : coordonnées en degrés, code département déduit
+      du code postal, libellés lisibles.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date_fichier, id_station]
+    columns:
+      - name: id_station
+        data_tests: [not_null]
+      - name: type_route
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [route, autoroute]
+      - name: fermeture_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [definitive, temporaire]
+      - name: code_departement
+        description: >
+          Déduit du code postal (macro code_departement). Le flux contient une station de
+          test (code postal 99999) : elle n'a pas de département réel, d'où un
+          avertissement plutôt qu'une erreur, et elle est écartée des marts.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('departements')
+                field: code_departement
+              config:
+                severity: warn
+
+  - name: stg_carburants__prix
+    description: >
+      Dernier prix connu par station, carburant et fichier quotidien, dédoublonné,
+      converti en euros par litre (numeric) et en horodatage avec fuseau.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [date_fichier, id_station, id_carburant]
+    columns:
+      - name: id_carburant
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('carburants')
+                field: id_carburant
+      - name: code_carburant
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Gazole, SP95, E85, GPLc, E10, SP98]
+      - name: prix_litre
+        data_tests: [not_null]
+      - name: maj
+        data_tests: [not_null]
+
+  - name: stg_carburants__ruptures
+    description: Ruptures de stock par station, carburant et fichier quotidien.
+    columns:
+      - name: type_rupture
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [temporaire, definitive, non_precise]
+
+  - name: stg_carburants__journal_ingestion
+    description: Journal des chargements, une ligne par date de fichier.
+    columns:
+      - name: date_fichier
+        data_tests: [unique, not_null]

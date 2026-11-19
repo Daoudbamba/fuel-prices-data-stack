@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: int_stations__derniere_version
+    description: >
+      Une ligne par station : attributs du fichier le plus récent où elle figure,
+      département et région issus du référentiel, période de présence dans le flux.
+    columns:
+      - name: id_station
+        data_tests: [unique, not_null]
+
+  - name: int_prix__qualifies
+    description: >
+      Prix par station, carburant et jour, avec l'ancienneté du prix, l'indicateur de
+      prix récent et l'écart à la médiane départementale du jour.
+    columns:
+      - name: prix_litre
+        description: Prix en euros par litre.
+        data_tests:
+          - prix_dans_les_bornes:
+              arguments:
+                referentiel: ref('carburants')
+              config:
+                # Les prix figés depuis des années ne reflètent plus le marché :
+                # la règle porte sur les prix mis à jour récemment.
+                where: est_recent
+                # Nom stable de la table des lignes en échec (schéma audit).
+                alias: echecs_prix_hors_bornes
+      - name: age_prix_jours
+        description: Jours écoulés entre la dernière mise à jour du prix et la date du fichier.
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                # Un prix ne peut pas être mis à jour après la publication du fichier.
+                min_value: 0

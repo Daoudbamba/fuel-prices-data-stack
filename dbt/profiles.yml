@@ -1,0 +1,15 @@
+# Profil unique : la connexion vient des variables d'environnement.
+# Dans les conteneurs Airflow, Compose les fournit (hôte postgres, port 5432).
+# Depuis Windows : ENTREPOT_HOST=localhost, ENTREPOT_PORT=5433 et ENTREPOT_PASSWORD du .env.
+entrepot:
+  target: local
+  outputs:
+    local:
+      type: postgres
+      host: "{{ env_var('ENTREPOT_HOST', 'localhost') }}"
+      port: "{{ env_var('ENTREPOT_PORT', '5433') | int }}"
+      dbname: "{{ env_var('ENTREPOT_DB', 'entrepot') }}"
+      user: "{{ env_var('ENTREPOT_USER', 'entrepot') }}"
+      password: "{{ env_var('ENTREPOT_PASSWORD') }}"
+      schema: public
+      threads: 2
