@@ -1,0 +1,47 @@
+
+===== 1. Donnée cassée : un prix de gazole multiplié par 10 dans raw.prix =====
+ date_fichier | id_station | carburant | valeur_cassee 
+--------------+------------+-----------+---------------
+ 2026-11-18   | 1000001    | Gazole    | 20.690
+(1 row)
+
+UPDATE 1
+
+===== 2. dbt build : le test métier doit échouer et bloquer les marts =====
+12:16:12  58 of 94 START test prix_dans_les_bornes_int_prix__qualifies_prix_litre__ref_carburants_  [RUN]
+12:16:21  58 of 94 FAIL 1 prix_dans_les_bornes_int_prix__qualifies_prix_litre__ref_carburants_  [FAIL 1 in 9.20s]
+12:16:22  83 of 94 SKIP relation marts.mart_classement_stations .......................... [SKIP]
+12:16:22  84 of 94 SKIP relation marts.mart_prix_enseignes_quotidiens .................... [SKIP]
+12:16:22  85 of 94 SKIP relation marts.mart_prix_regions_quotidiens ...................... [SKIP]
+12:16:22  86 of 94 SKIP test dbt_utils_accepted_range_mart_classement_stations_rang_departement__1  [SKIP]
+12:16:22  87 of 94 SKIP test dbt_utils_unique_combination_of_columns_mart_classement_stations_id_station__code_carburant  [SKIP]
+12:16:22  88 of 94 SKIP test not_null_mart_classement_stations_rang_departement .......... [SKIP]
+12:16:22  89 of 94 SKIP test accepted_values_mart_prix_enseignes_quotidiens_niveau__enseigne__type_enseigne  [SKIP]
+12:16:22  90 of 94 SKIP test dbt_utils_accepted_range_mart_prix_enseignes_quotidiens_nb_stations__10  [SKIP]
+12:16:22  91 of 94 SKIP test dbt_utils_unique_combination_of_columns_mart_prix_enseignes_quotidiens_date_fichier__niveau__enseigne__type_enseigne__code_carburant  [SKIP]
+12:16:22  92 of 94 SKIP test accepted_values_mart_prix_regions_quotidiens_code_carburant__Gazole__SP95__E85__GPLc__E10__SP98  [SKIP]
+12:16:22  93 of 94 SKIP test dbt_utils_accepted_range_mart_prix_regions_quotidiens_nb_stations__1  [SKIP]
+12:16:22  94 of 94 SKIP test dbt_utils_unique_combination_of_columns_mart_prix_regions_quotidiens_date_fichier__code_region__code_carburant  [SKIP]
+12:16:22  [ERROR]: in test prix_dans_les_bornes_int_prix__qualifies_prix_litre__ref_carburants_ (models/intermediate/_intermediate.yml)
+12:16:22    compiled code at target/compiled/prix_carburants/models/intermediate/_intermediate.yml/prix_dans_les_bornes_int_prix__6a50189eba3eb1431a8466244e837b31.sql
+12:16:22  Done. PASS=78 WARN=3 ERROR=1 SKIP=12 NO-OP=0 REUSED=0 TOTAL=94
+
+===== Lignes fautives conservées par dbt dans le schéma audit =====
+ date_fichier | id_station | code_carburant | prix_litre | prix_min_plausible | prix_max_plausible 
+--------------+------------+----------------+------------+--------------------+--------------------
+ 2026-11-18   |    1000001 | Gazole         |     20.690 |              1.000 |              3.500
+(1 row)
+
+
+===== 3. Correction : rejeu idempotent de l'ingestion du 2026-11-18 =====
+2026-11-19 12:16:28,107 INFO Ingestion terminée : {'date_fichier': '2026-11-18', 'fichier': 'PrixCarburants_quotidien_20261118.zip', 'taille_octets': 1151032, 'fichier_deja_present': True, 'stations': 9950, 'prix': 32557, 'ruptures': 25198, 'duree_s': 1.81}
+ date_fichier | id_station | carburant | valeur_retablie 
+--------------+------------+-----------+-----------------
+ 2026-11-18   | 1000001    | Gazole    | 2.069
+(1 row)
+
+
+===== 4. dbt build après correction =====
+12:16:52  58 of 94 START test prix_dans_les_bornes_int_prix__qualifies_prix_litre__ref_carburants_  [RUN]
+12:17:02  58 of 94 PASS prix_dans_les_bornes_int_prix__qualifies_prix_litre__ref_carburants_  [PASS in 9.70s]
+12:17:16  Done. PASS=91 WARN=3 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=94
