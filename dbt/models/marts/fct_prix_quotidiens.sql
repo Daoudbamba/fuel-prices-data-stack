@@ -18,6 +18,9 @@
     )
 }}
 
+-- Le journal n'est lu qu'en mode incrémental : on déclare la dépendance pour le graphe.
+-- depends_on: {{ ref('stg_carburants__journal_ingestion') }}
+
 with prix as (
 
     select * from {{ ref('int_prix__qualifies') }}
