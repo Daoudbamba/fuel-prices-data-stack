@@ -94,6 +94,30 @@ jobs:
         # L'extrait compte 250 stations par jour : le seuil de volume est abaissé.
         run: |
           dbt build --vars '{nb_stations_min_par_jour: 200}'
+      - name: Une donnée cassée doit être arrêtée par le test métier
+        # Un prix multiplié par 10 (virgule décalée) : le test prix_dans_les_bornes doit
+        # échouer. S'il passe, la CI échoue. Les données sont ensuite rechargées.
+        run: |
+          python - <<'EOF'
+          from fuel_prices.ingestion import connexion_depuis_environnement
+          connexion = connexion_depuis_environnement()
+          with connexion, connexion.cursor() as curseur:
+              curseur.execute("""
+                  update raw.prix set valeur = (valeur::numeric * 10)::text
+                  where ctid = (select ctid from raw.prix
+                                where date_fichier = (select max(date_fichier) from raw.prix)
+                                  and carburant = 'Gazole'
+                                  and maj::timestamp::date >= date_fichier - 1
+                                limit 1)""")
+              print("prix cassé :", curseur.rowcount, "ligne")
+          EOF
+          cd dbt
+          if dbt test --select "test_name:prix_dans_les_bornes"; then
+            echo "::error::La donnée cassée n'a pas été détectée par dbt."
+            exit 1
+          fi
+          echo "Donnée cassée détectée par dbt, comme attendu."
+          cd .. && python scripts/charger_donnees_ci.py
       - name: Documentation dbt
         working-directory: dbt
         run: dbt docs generate --static
