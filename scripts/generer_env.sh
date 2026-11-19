@@ -32,6 +32,7 @@ sed -e "s|^POSTGRES_PASSWORD=$|POSTGRES_PASSWORD=$(secret)|" \
     -e "s|^ENTREPOT_PASSWORD=$|ENTREPOT_PASSWORD=$(secret)|" \
     -e "s|^LECTEUR_PASSWORD=$|LECTEUR_PASSWORD=$(secret)|" \
     -e "s|^METABASE_DB_PASSWORD=$|METABASE_DB_PASSWORD=$(secret)|" \
+    -e "s|^METABASE_ADMIN_PASSWORD=$|METABASE_ADMIN_PASSWORD=Mb1-$(secret)|" \
     -e "s|^AIRFLOW_FERNET_KEY=$|AIRFLOW_FERNET_KEY=${fernet}|" \
     -e "s|^AIRFLOW_JWT_SECRET=$|AIRFLOW_JWT_SECRET=${jwt}|" \
     .env.example > .env
