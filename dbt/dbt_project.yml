@@ -17,6 +17,8 @@ vars:
   age_max_prix_recent_jours: 7
   # Écart relatif à la médiane départementale du jour au-delà duquel un prix est signalé.
   ecart_max_mediane_departement: 0.40
+  # Nombre minimal de stations dans un fichier quotidien complet (environ 9 950 en 2026).
+  nb_stations_min_par_jour: 9000
 
 models:
   prix_carburants:
