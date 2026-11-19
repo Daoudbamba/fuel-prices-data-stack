@@ -110,7 +110,8 @@ def prix_carburants_quotidien():
     def charger_raw(jour_iso: str, fichier: dict) -> dict:
         from datetime import date
 
-        from airflow.providers.postgres.hooks.postgres import PostgresHook
+        import psycopg2
+        from airflow.sdk import BaseHook
 
         from fuel_prices.ingestion import charger_fichier
         from fuel_prices.telechargement import FichierTelecharge
@@ -121,7 +122,17 @@ def prix_carburants_quotidien():
             taille_octets=fichier["taille_octets"],
             deja_present=fichier["deja_present"],
         )
-        connexion = PostgresHook(postgres_conn_id=ID_CONNEXION_ENTREPOT).get_conn()
+        # Le PostgresHook du fournisseur 7.x renvoie une connexion psycopg 3 quand ce pilote
+        # est présent ; le chargement (COPY via copy_expert) et ses tests utilisent psycopg2.
+        # On lit donc la connexion Airflow et on ouvre soi-même une connexion psycopg2.
+        parametres = BaseHook.get_connection(ID_CONNEXION_ENTREPOT)
+        connexion = psycopg2.connect(
+            host=parametres.host,
+            port=parametres.port,
+            dbname=parametres.schema,
+            user=parametres.login,
+            password=parametres.password,
+        )
         try:
             comptes = charger_fichier(date.fromisoformat(jour_iso), connexion, telecharge)
         finally:
