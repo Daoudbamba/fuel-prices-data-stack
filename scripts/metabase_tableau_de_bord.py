@@ -459,6 +459,8 @@ def main() -> None:
     analyseur = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     analyseur.add_argument("--public", action="store_true", help="créer un lien public")
     options = analyseur.parse_args()
+    # La console Windows (cp1252) ne sait pas afficher tous les caractères des titres.
+    sys.stdout.reconfigure(encoding="utf-8")
 
     env = lire_env(RACINE / ".env")
     mb = Metabase(f"http://localhost:{env.get('METABASE_HOST_PORT', '3002')}")
