@@ -4,7 +4,7 @@ name: fuel
 # orchestration de dbt) et Metabase (tableau de bord).
 #
 # Mémoire : la VM Docker n'a que 7,7 Go et d'autres projets peuvent tourner à côté.
-# Chaque service a une limite ; la somme des limites (environ 4,6 Go) est un plafond,
+# Chaque service a une limite ; la somme des limites (environ 4,9 Go) est un plafond,
 # la consommation réelle mesurée est donnée dans le README.
 # Lancer de préférence avec scripts/demarrer.sh, qui vérifie la mémoire disponible.
 
@@ -192,7 +192,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1280m
+          # Mesuré au repos : 1,19 Go de mémoire propre à la JVM avec un tas de 768 Mo
+          # (métaspace Clojure, cache de code, threads), plus environ 300 Mo de cache fichier
+          # que le noyau récupère en cas de besoin. 1280m ne laissait aucune marge.
+          memory: 1536m
     restart: on-failure:3
 
 volumes:
