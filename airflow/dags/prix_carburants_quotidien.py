@@ -72,9 +72,9 @@ def prix_carburants_quotidien():
         from fuel_prices.ingestion import verifier_date_passee
 
         contexte = get_current_context()
-        # Un déclenchement manuel peut ne pas avoir de date logique : on prend alors
-        # l'heure à laquelle l'exécution a été demandée.
-        date_logique: datetime = contexte["logical_date"] or contexte["dag_run"].run_after
+        # Dans Airflow 3, un déclenchement manuel peut n'avoir aucune date logique : la clé
+        # est alors absente du contexte. On prend l'heure à laquelle l'exécution a été demandée.
+        date_logique: datetime = contexte.get("logical_date") or contexte["dag_run"].run_after
         try:
             jour = date_a_ingerer(date_logique, contexte["params"].get("date_fichier"))
             verifier_date_passee(jour)
