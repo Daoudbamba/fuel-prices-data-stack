@@ -59,13 +59,14 @@ def enseignes_osm_hebdomadaire():
             "avec_marque": sum(1 for ligne in lignes if ligne.marque),
         }
 
-    # Seuls les modèles en aval des enseignes sont reconstruits et testés.
+    # Seuls les modèles en aval des enseignes sont reconstruits et testés, y compris
+    # le référentiel de correspondance des marques (seed), dont dépend un test.
     dbt_enseignes = BashOperator(
         task_id="dbt_build_enseignes",
         bash_command=(
             'cd "$DBT_PROJECT_DIR" '
             '&& { [ -d dbt_packages/dbt_utils ] || "$DBT_BIN" deps; } '
-            '&& "$DBT_BIN" build --select "source:osm+"'
+            '&& "$DBT_BIN" build --select "source:osm+ correspondance_enseignes+"'
         ),
         retries=0,
         execution_timeout=timedelta(minutes=20),
