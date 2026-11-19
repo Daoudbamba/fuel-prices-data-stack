@@ -34,6 +34,7 @@ x-airflow-common: &airflow-common
     ENTREPOT_USER: ${ENTREPOT_USER:-entrepot}
     ENTREPOT_PASSWORD: ${ENTREPOT_PASSWORD}
     SOURCE_URL_JOUR: ${SOURCE_URL_JOUR:-https://donnees.roulez-eco.fr/opendata/jour}
+    OVERPASS_URL: ${OVERPASS_URL:-https://overpass-api.de/api/interpreter}
     DOSSIER_DONNEES: /opt/airflow/data
   volumes:
     - ./airflow/dags:/opt/airflow/dags:ro

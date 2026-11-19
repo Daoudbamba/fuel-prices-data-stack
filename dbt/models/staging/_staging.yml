@@ -75,3 +75,11 @@ models:
     columns:
       - name: date_fichier
         data_tests: [unique, not_null]
+
+  - name: stg_osm__enseignes
+    description: >
+      Marque OpenStreetMap de chaque station (dernière extraction), une ligne par
+      station ; les marques divergentes entre objets OSM sont signalées.
+    columns:
+      - name: id_station
+        data_tests: [unique, not_null]

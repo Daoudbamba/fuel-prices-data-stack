@@ -1,0 +1,23 @@
+version: 2
+
+sources:
+  - name: osm
+    description: >
+      Enseignes des stations extraites d'OpenStreetMap (API Overpass) chaque semaine
+      par le DAG enseignes_osm_hebdomadaire. Données © contributeurs OpenStreetMap,
+      licence ODbL.
+    schema: raw
+    tables:
+      - name: osm_enseignes
+        description: >
+          Une ligne par identifiant officiel de station et par objet OSM, pour chaque
+          extraction. Un même identifiant peut figurer sur plusieurs objets OSM.
+        loaded_at_field: charge_le
+        config:
+          freshness:
+            # Avertissement seulement : des enseignes vieilles de deux semaines ne
+            # faussent pas les prix, elles ne doivent pas bloquer la chaîne quotidienne.
+            warn_after: { count: 8, period: day }
+        columns:
+          - name: id_station
+            data_tests: [not_null]

@@ -22,6 +22,7 @@ select
     p.id_station,
     s.adresse,
     s.ville,
+    s.enseigne,
     s.code_postal,
     s.nom_departement,
     s.nom_region,
