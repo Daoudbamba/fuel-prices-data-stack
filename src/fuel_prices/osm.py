@@ -19,6 +19,8 @@ from datetime import date
 from typing import Any
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from fuel_prices.chargement import vers_csv
 
@@ -108,13 +110,30 @@ def analyser_reponse(reponse: dict[str, Any], minimum_attendu: int = 1) -> list[
     return lignes
 
 
+def creer_session() -> requests.Session:
+    """Session qui réessaie sur les erreurs passagères d'Overpass (502, 503, 504, 429).
+
+    La requête Overpass est une lecture : la renvoyer en POST est sans risque, d'où
+    l'autorisation explicite de POST, que urllib3 ne réessaie pas par défaut.
+    """
+    session = requests.Session()
+    reessais = Retry(
+        total=3,
+        backoff_factor=10,
+        status_forcelist=(429, 502, 503, 504),
+        allowed_methods=("POST",),
+    )
+    session.mount("https://", HTTPAdapter(max_retries=reessais))
+    return session
+
+
 def extraire(
     url: str = URL_OVERPASS_PAR_DEFAUT,
     session: requests.Session | None = None,
     minimum_attendu: int = 9000,
 ) -> list[EnseigneOsm]:
     """Interroge Overpass. Environ 10 000 stations attendues pour la France."""
-    session = session or requests.Session()
+    session = session or creer_session()
     # Overpass refuse les requêtes sans User-Agent identifiable (HTTP 406).
     reponse = session.post(
         url,
