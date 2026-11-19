@@ -8,7 +8,9 @@ Rejouer un jour précis : déclencher le DAG avec la configuration
 ``airflow backfill create --dag-id prix_carburants_quotidien --from-date ... --to-date ...``
 (chaque date logique ingère la veille).
 
-Les transformations dbt s'ajouteront en aval de ``charger_raw``.
+Après le chargement, dbt vérifie la fraîcheur de la source puis reconstruit et teste
+les couches staging, intermediate et marts. Un test dbt en erreur fait échouer le DAG :
+les marts ne sont pas mis à jour avec des données douteuses.
 """
 
 from __future__ import annotations
@@ -18,12 +20,21 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pendulum
+from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import Param, dag, get_current_context, task
 from airflow.sdk.exceptions import AirflowFailException
 from airflow.timetables.trigger import CronTriggerTimetable
 
 FUSEAU = "Europe/Paris"
 ID_CONNEXION_ENTREPOT = "entrepot"
+
+# dbt tourne dans son environnement virtuel ; les dépendances (dbt_utils) ne sont
+# téléchargées qu'au premier passage. Variables fournies par l'image et par Compose.
+COMMANDE_DBT = (
+    'cd "$DBT_PROJECT_DIR" '
+    '&& { [ -d dbt_packages/dbt_utils ] || "$DBT_BIN" deps; } '
+    '&& "$DBT_BIN" {sous_commande}'
+)
 
 DOCUMENTATION = """
 ### Prix des carburants : ingestion quotidienne
@@ -33,6 +44,8 @@ DOCUMENTATION = """
 | `choisir_date` | date à ingérer : la veille de la date logique, ou `date_fichier` si imposée |
 | `telecharger` | ZIP du jour vers la zone d'atterrissage, signature vérifiée |
 | `charger_raw` | analyse du XML, remplacement de la date dans le schéma `raw` |
+| `dbt_fraicheur_source` | `dbt source freshness` : le journal d'ingestion est-il à jour ? |
+| `dbt_build` | modèles et tests dbt ; un test en erreur arrête la mise à jour des marts |
 
 Source : [prix-carburants.gouv.fr](https://www.prix-carburants.gouv.fr/rubrique/opendata/),
 environ un mois de fichiers disponibles.
@@ -139,8 +152,21 @@ def prix_carburants_quotidien():
             connexion.close()
         return {"date_fichier": jour_iso, **comptes}
 
+    fraicheur = BashOperator(
+        task_id="dbt_fraicheur_source",
+        bash_command=COMMANDE_DBT.replace("{sous_commande}", "source freshness"),
+        retries=0,
+    )
+    build = BashOperator(
+        task_id="dbt_build",
+        bash_command=COMMANDE_DBT.replace("{sous_commande}", "build"),
+        # Un test en échec signale un problème de données : réessayer ne le corrigera pas.
+        retries=0,
+        execution_timeout=timedelta(minutes=20),
+    )
+
     jour = choisir_date()
-    charger_raw(jour, telecharger(jour))
+    charger_raw(jour, telecharger(jour)) >> fraicheur >> build
 
 
 prix_carburants_quotidien()
