@@ -1,0 +1,30 @@
+# Secrets et configuration locale
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# dbt : artefacts de compilation et dépendances téléchargées
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+
+# Données téléchargées et journaux
+data/
+*.log
+
+# Éditeurs et système
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

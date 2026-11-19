@@ -1,0 +1,9 @@
+# Les scripts lancés dans les conteneurs Linux doivent garder des fins de ligne LF,
+# même après un clone sous Windows.
+* text=auto
+*.sh text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Dockerfile text eol=lf
+*.png binary
