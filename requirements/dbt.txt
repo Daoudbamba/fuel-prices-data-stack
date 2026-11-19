@@ -1,0 +1,4 @@
+# dbt tourne dans un environnement virtuel séparé de l'image Airflow :
+# ses dépendances (agate, protobuf...) ne doivent pas entrer en conflit avec les contraintes d'Airflow.
+dbt-core==1.12.6
+dbt-postgres==1.11.0

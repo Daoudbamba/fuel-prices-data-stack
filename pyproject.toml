@@ -1,0 +1,24 @@
+[project]
+name = "fuel-prices-data-stack"
+version = "0.1.0"
+description = "Prix des carburants en France : ingestion Airflow, entrepôt PostgreSQL, modèles dbt, tableau de bord Metabase"
+requires-python = ">=3.12,<3.13"
+authors = [{ name = "Daouda Bamba" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+markers = [
+    "integration: nécessite une base PostgreSQL accessible",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fuel_prices", "exemples"]

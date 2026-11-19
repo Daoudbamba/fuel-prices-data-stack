@@ -1,0 +1,8 @@
+# Outils de développement et de CI (environnement virtuel local, Python 3.12).
+# requests et psycopg2-binary suivent les versions des contraintes d'Airflow 3.3.2,
+# pour tester le code d'ingestion avec les mêmes bibliothèques que dans le conteneur.
+-r dbt.txt
+requests==2.34.2
+psycopg2-binary==2.9.13
+pytest==9.2.0
+ruff==0.17.5
