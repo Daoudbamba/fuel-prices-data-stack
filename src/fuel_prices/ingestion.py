@@ -1,6 +1,7 @@
 """Point d'entrée de l'ingestion d'un jour : téléchargement, analyse, chargement.
 
-Utilisé par le DAG Airflow, et lançable à la main :
+Le DAG Airflow appelle ``verifier_date_passee``, puis ``telecharger_jour`` et
+``charger_fichier`` dans deux tâches distinctes. On peut aussi tout lancer à la main :
 
     python -m fuel_prices.ingestion --date 2026-11-17
 
@@ -14,15 +15,32 @@ import argparse
 import logging
 import os
 import time
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 from fuel_prices.analyse import analyser_zip
 from fuel_prices.chargement import charger_jour
-from fuel_prices.telechargement import URL_BASE_PAR_DEFAUT, telecharger_jour
+from fuel_prices.dates import FUSEAU_SOURCE
+from fuel_prices.telechargement import URL_BASE_PAR_DEFAUT, FichierTelecharge, telecharger_jour
 
 journal = logging.getLogger(__name__)
+
+
+def verifier_date_passee(jour: date, aujourd_hui: date | None = None) -> None:
+    """Refuse le jour en cours (heure de Paris) et les jours futurs."""
+    aujourd_hui = aujourd_hui or datetime.now(FUSEAU_SOURCE).date()
+    if jour >= aujourd_hui:
+        raise ValueError(
+            f"Le fichier du {jour:%d/%m/%Y} n'est complet qu'à la fin de la journée : "
+            "ingérer une date passée."
+        )
+
+
+def charger_fichier(jour: date, connexion: Any, fichier: FichierTelecharge) -> dict[str, int]:
+    """Analyse un ZIP déjà présent dans la zone d'atterrissage et le charge dans raw."""
+    contenu = analyser_zip(fichier.chemin)
+    return charger_jour(connexion, jour, contenu, fichier)
 
 
 def ingerer_jour(
@@ -37,18 +55,12 @@ def ingerer_jour(
 
     ``session`` permet d'injecter un client HTTP (les tests n'appellent pas le réseau).
     """
-    if jour >= date.today():
-        raise ValueError(
-            f"Le fichier du {jour:%d/%m/%Y} n'est complet qu'à la fin de la journée : "
-            "ingérer une date passée."
-        )
-
+    verifier_date_passee(jour)
     debut = time.perf_counter()
     fichier = telecharger_jour(
         jour, dossier, url_base, session=session, forcer=forcer_telechargement
     )
-    contenu = analyser_zip(fichier.chemin)
-    comptes = charger_jour(connexion, jour, contenu, fichier)
+    comptes = charger_fichier(jour, connexion, fichier)
     statistiques = {
         "date_fichier": jour.isoformat(),
         "fichier": fichier.chemin.name,
