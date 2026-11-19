@@ -1,0 +1,3 @@
+# L'image Airflow n'a besoin que des fichiers de dépendances : le code est monté en volume.
+*
+!requirements/
