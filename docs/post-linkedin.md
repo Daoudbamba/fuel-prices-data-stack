@@ -48,7 +48,7 @@ Public visé : recruteurs et Data Engineers. Ton : concret, chiffré, sans super
 > distribution que chez les pétroliers (18/11/2026).
 >
 > Stack : Airflow, PostgreSQL, dbt, Metabase, Docker, GitHub Actions.
-> Le code et la démo sont sur GitHub : [lien du dépôt]
+> Le code et la démo sont sur GitHub : https://github.com/Daoudbamba/fuel-prices-data-stack
 >
 > Je cherche une alternance en Data Engineering : si votre équipe fait du dbt, parlons-en.
 >
@@ -63,7 +63,7 @@ Public visé : recruteurs et Data Engineers. Ton : concret, chiffré, sans super
 
 ## Avant de publier
 
-- Remplacer `[lien du dépôt]` une fois le dépôt poussé sur GitHub.
-- Vérifier que la CI est verte sur GitHub (elle n'a été rejouée qu'en local).
+- Vérifier que la CI est toujours verte sur GitHub (badge du README) : elle l'était au premier
+  push corrigé, le 19/11/2026.
 - Citer les sources si une capture du tableau de bord est jointe : prix-carburants.gouv.fr,
   © contributeurs OpenStreetMap (ODbL). L'attribution figure déjà dans le tableau de bord.

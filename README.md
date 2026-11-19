@@ -1,5 +1,7 @@
 # Prix des carburants en France : une stack data batch avec Airflow, dbt et Metabase
 
+[![CI](https://github.com/Daoudbamba/fuel-prices-data-stack/actions/workflows/ci.yml/badge.svg)](https://github.com/Daoudbamba/fuel-prices-data-stack/actions/workflows/ci.yml)
+
 Chaque matin, ce projet ingère le flux officiel des prix des carburants (≈ 9 950 stations),
 le charge dans un entrepôt PostgreSQL, le transforme et le **teste** avec dbt, puis alimente
 un tableau de bord Metabase : évolution des prix, comparaison par région et par enseigne,
