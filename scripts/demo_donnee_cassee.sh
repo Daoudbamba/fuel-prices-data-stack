@@ -50,7 +50,7 @@ titre "Lignes fautives conservées par dbt dans le schéma audit"
 sql -c "
     select date_fichier, id_station, code_carburant, prix_litre,
            prix_min_plausible, prix_max_plausible
-    from audit.prix_dans_les_bornes_int_prix__qualifies_prix_litre__ref_carburants_"
+    from audit.echecs_prix_hors_bornes"
 
 titre "3. Correction : rejeu idempotent de l'ingestion du $jour"
 docker exec fuel-airflow-scheduler python -m fuel_prices.ingestion --date "$jour" 2>&1 | tail -1

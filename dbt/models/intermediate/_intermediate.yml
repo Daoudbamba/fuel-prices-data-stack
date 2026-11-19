@@ -24,6 +24,8 @@ models:
                 # Les prix figés depuis des années ne reflètent plus le marché :
                 # la règle porte sur les prix mis à jour récemment.
                 where: est_recent
+                # Nom stable de la table des lignes en échec (schéma audit).
+                alias: echecs_prix_hors_bornes
       - name: age_prix_jours
         description: Jours écoulés entre la dernière mise à jour du prix et la date du fichier.
         data_tests:
