@@ -9,8 +9,19 @@ if [[ -f .env ]]; then
     exit 1
 fi
 
-# Python est disponible sous Windows (py) comme sous Linux (python3).
-PYTHON=$(command -v python3 || command -v python || command -v py)
+# Premier interpréteur Python qui s'exécute vraiment : sous Windows, « python3 » peut
+# n'être qu'un raccourci vers le Microsoft Store.
+PYTHON=""
+for candidat in python3 python py; do
+    if "$candidat" -c "import secrets" >/dev/null 2>&1; then
+        PYTHON=$candidat
+        break
+    fi
+done
+if [[ -z "$PYTHON" ]]; then
+    echo "Python 3 introuvable." >&2
+    exit 1
+fi
 
 secret() { "$PYTHON" -c "import secrets; print(secrets.token_urlsafe(24))"; }
 fernet=$("$PYTHON" -c "import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
