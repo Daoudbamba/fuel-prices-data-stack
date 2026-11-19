@@ -1,0 +1,7 @@
+id_carburant,code_carburant,libelle,famille,prix_min_plausible,prix_max_plausible
+1,Gazole,Gazole (B7),diesel,1.00,3.50
+2,SP95,Sans plomb 95 (E5),essence,1.00,3.50
+3,E85,Superéthanol E85,bioéthanol,0.40,2.50
+4,GPLc,GPL carburant,gaz,0.40,2.50
+5,E10,Sans plomb 95 E10,essence,1.00,3.50
+6,SP98,Sans plomb 98,essence,1.00,3.50
