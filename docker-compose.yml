@@ -1,0 +1,200 @@
+name: fuel
+
+# Stack locale : PostgreSQL (entrepôt + métadonnées), Airflow 3 (ingestion et
+# orchestration de dbt) et Metabase (tableau de bord).
+#
+# Mémoire : la VM Docker n'a que 7,7 Go et d'autres projets peuvent tourner à côté.
+# Chaque service a une limite ; la somme des limites (environ 4,6 Go) est un plafond,
+# la consommation réelle mesurée est donnée dans le README.
+# Lancer de préférence avec scripts/demarrer.sh, qui vérifie la mémoire disponible.
+
+x-airflow-common: &airflow-common
+  image: fuel-airflow:local
+  user: "${AIRFLOW_UID:-1000}:0"
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    # Les DAG restent en pause à la création : on choisit quand déclencher l'ingestion.
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__PARALLELISM: "2"
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:?Renseigner AIRFLOW_FERNET_KEY dans .env}
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    # Stack locale : tout visiteur est administrateur, le port n'écoute que sur 127.0.0.1.
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?Renseigner AIRFLOW_JWT_SECRET dans .env}
+    AIRFLOW__API__WORKERS: "1"
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:?Renseigner AIRFLOW_DB_PASSWORD dans .env}@postgres:5432/airflow
+    # Connexion à l'entrepôt utilisée par l'ingestion.
+    AIRFLOW_CONN_ENTREPOT: '{"conn_type": "postgres", "host": "postgres", "port": 5432, "schema": "${ENTREPOT_DB:-entrepot}", "login": "${ENTREPOT_USER:-entrepot}", "password": "${ENTREPOT_PASSWORD:?Renseigner ENTREPOT_PASSWORD dans .env}"}'
+    # Variables lues par le profil dbt (dbt/profiles.yml).
+    ENTREPOT_HOST: postgres
+    ENTREPOT_PORT: "5432"
+    ENTREPOT_DB: ${ENTREPOT_DB:-entrepot}
+    ENTREPOT_USER: ${ENTREPOT_USER:-entrepot}
+    ENTREPOT_PASSWORD: ${ENTREPOT_PASSWORD}
+    SOURCE_URL_JOUR: ${SOURCE_URL_JOUR:-https://donnees.roulez-eco.fr/opendata/jour}
+    DOSSIER_DONNEES: /opt/airflow/data
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags:ro
+    - ./src:/opt/airflow/src:ro
+    # Lecture-écriture : dbt y écrit target/ (documentation et graphe).
+    - ./dbt:/opt/airflow/dbt
+    - airflow-logs:/opt/airflow/logs
+    # Zone d'atterrissage : les fichiers ZIP téléchargés, conservés tels quels.
+    - donnees-brutes:/opt/airflow/data
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: fuel-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Renseigner POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: postgres
+      # Lues par le script d'initialisation.
+      AIRFLOW_DB_USER: ${AIRFLOW_DB_USER:-airflow}
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD:?Renseigner AIRFLOW_DB_PASSWORD dans .env}
+      ENTREPOT_DB: ${ENTREPOT_DB:-entrepot}
+      ENTREPOT_USER: ${ENTREPOT_USER:-entrepot}
+      ENTREPOT_PASSWORD: ${ENTREPOT_PASSWORD:?Renseigner ENTREPOT_PASSWORD dans .env}
+      LECTEUR_USER: ${LECTEUR_USER:-lecteur}
+      LECTEUR_PASSWORD: ${LECTEUR_PASSWORD:?Renseigner LECTEUR_PASSWORD dans .env}
+      METABASE_DB_USER: ${METABASE_DB_USER:-metabase}
+      METABASE_DB_PASSWORD: ${METABASE_DB_PASSWORD:?Renseigner METABASE_DB_PASSWORD dans .env}
+    # Réglages modestes : l'entrepôt fait quelques centaines de milliers de lignes.
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "work_mem=16MB", "-c", "max_connections=60"]
+    ports:
+      - 127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    restart: on-failure:3
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: fuel-airflow-init
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+    # root uniquement pour donner les volumes à l'utilisateur d'exécution.
+    user: "0:0"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        chown -R ${AIRFLOW_UID:-1000}:0 /opt/airflow/logs /opt/airflow/data
+        /home/airflow/.local/bin/python -m airflow db migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  airflow-apiserver:
+    <<: *airflow-common
+    container_name: fuel-airflow-apiserver
+    hostname: airflow-apiserver
+    command: ["api-server"]
+    ports:
+      - 127.0.0.1:${AIRFLOW_HOST_PORT:-8082}:8080
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    restart: on-failure:3
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: fuel-airflow-scheduler
+    hostname: airflow-scheduler
+    command: ["scheduler"]
+    depends_on:
+      airflow-apiserver:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          # Avec LocalExecutor, les tâches (analyse du XML, dbt) tournent dans ce conteneur.
+          memory: 1536m
+    restart: on-failure:3
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    container_name: fuel-airflow-dag-processor
+    hostname: airflow-dag-processor
+    command: ["dag-processor"]
+    depends_on:
+      airflow-apiserver:
+        condition: service_healthy
+    healthcheck:
+      # Lit le battement de cœur via l'API : la CLI Airflow est trop lourde pour une sonde.
+      test: ["CMD-SHELL", "curl --silent http://airflow-apiserver:8080/api/v2/monitor/health | grep --quiet dag_processor"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+    restart: on-failure:3
+
+  metabase:
+    image: metabase/metabase:v0.64.8
+    container_name: fuel-metabase
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: "5432"
+      MB_DB_DBNAME: metabase
+      MB_DB_USER: ${METABASE_DB_USER:-metabase}
+      MB_DB_PASS: ${METABASE_DB_PASSWORD:?Renseigner METABASE_DB_PASSWORD dans .env}
+      MB_ANON_TRACKING_ENABLED: "false"
+      MB_CHECK_FOR_UPDATES: "false"
+      # Tas Java borné : la limite du conteneur laisse de la marge pour la mémoire hors tas.
+      JAVA_OPTS: "-Xmx768m -XX:+UseSerialGC"
+    ports:
+      - 127.0.0.1:${METABASE_HOST_PORT:-3002}:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:3000/api/health | grep --quiet ok"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          memory: 1280m
+    restart: on-failure:3
+
+volumes:
+  postgres-data:
+  airflow-logs:
+  donnees-brutes:
