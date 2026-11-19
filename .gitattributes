@@ -1,9 +1,6 @@
-# Les scripts lancés dans les conteneurs Linux doivent garder des fins de ligne LF,
-# même après un clone sous Windows.
-* text=auto
-*.sh text eol=lf
-*.sql text eol=lf
-*.yml text eol=lf
-*.yaml text eol=lf
-Dockerfile text eol=lf
+# Tout le projet tourne dans des conteneurs Linux : fins de ligne LF partout, même après
+# un clone sous Windows avec core.autocrlf=true. Sinon .env.example passerait en CRLF et
+# un « \r » finirait dans les secrets générés et lus par Docker Compose.
+* text=auto eol=lf
 *.png binary
+*.zip binary
