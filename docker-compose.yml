@@ -183,7 +183,8 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl --fail --silent http://localhost:3000/api/health | grep --quiet ok"]
+      # L'image Metabase est basée sur Alpine : grep de BusyBox, donc -q et non --quiet.
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:3000/api/health | grep -q ok"]
       interval: 20s
       timeout: 10s
       retries: 15
