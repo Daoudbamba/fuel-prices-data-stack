@@ -19,6 +19,11 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<-SQL
 
     CREATE ROLE ${METABASE_DB_USER} LOGIN PASSWORD '${METABASE_DB_PASSWORD}';
     CREATE DATABASE metabase OWNER ${METABASE_DB_USER};
+
+    -- Par défaut, PostgreSQL autorise tout rôle à se connecter à toute base :
+    -- chaque base n'accepte ici que son propriétaire.
+    REVOKE CONNECT ON DATABASE airflow FROM PUBLIC;
+    REVOKE CONNECT ON DATABASE metabase FROM PUBLIC;
 SQL
 
 # Les schémas appartiennent au rôle d'écriture. Les droits par défaut donnent au
